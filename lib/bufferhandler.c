@@ -26,15 +26,14 @@ void createBuffer(char * buffer_name, int size) {
 	close(fd);
 }
 
-char * readBuffer(char * buffer_name) {
+char * readBuffer(char * buffer_name, int bytes, int offset) {
 	struct stat shm_obj;
 	fd = shm_open (buffer_name,  O_RDONLY  , 00400); /* open s.m object*/
-
+	char * read = (char *) calloc(bytes, sizeof(char));
 	if(fd == ERROR) {
 	   printf("Error openning shared memory buffer: %s\n", strerror(errno));
 	   exit(1);
 	}
-
 	if(fstat(fd, &shm_obj) == ERROR) {
 	   printf("Error getting stat struct.\n");
 	   exit(1);
@@ -45,34 +44,28 @@ char * readBuffer(char * buffer_name) {
 	  printf("Map failed in read process: %s\n", strerror(errno));
 	  exit(1);
 	}
-
+	memcpy(read, ptr + offset, bytes);
 	close(fd);
-
-	return ptr;
+	return read;
 }
 
-void writeBuffer(char * buffer_name, char * message) {
-
+void writeBuffer(char * buffer_name, char * message, int offset) {
 	fd = shm_open (buffer_name,  O_RDWR  , 00200); /* open s.m object*/
-
 	if(fd == ERROR)
 	{
 	   printf("Error file descriptor %s\n", strerror(errno));
 	   exit(1);
 	}
-
 	ptr = mmap(NULL, strlen(message), PROT_WRITE, MAP_SHARED, fd, 0);
 	if(ptr == MAP_FAILED)
 	{
 	  printf("Map failed in write process: %s\n", strerror(errno));
 	  exit(1);
 	}
-
-	memcpy(ptr, message, strlen(message));
-	//printf("%d \n", (int) strlen(message));
+	memcpy(ptr + offset, message, strlen(message));
 	close(fd);
 }
 
-void deleteBuffer(){
-	
+void deleteBuffer(char * buffer_name) {
+	shm_unlink(buffer_name);
 }
