@@ -20,7 +20,7 @@ int fd;
 char *ptr;
 struct stat shm_obj;
 
-void createBuffer(char * buffer_name, int size) {
+void createShrareMemoryBlock(char * buffer_name, int size) {
 	// Open and create shared memory buffer with shm_open syscall. It returns a file descriptor.
 	fd = shm_open (buffer_name, O_CREAT | O_RDWR  ,00700); 
 	if(fd == ERROR) {
@@ -32,15 +32,13 @@ void createBuffer(char * buffer_name, int size) {
 	   printf("Error shared memory buffer cannot be sized.\n");
 	   exit(1);
 	}
-	// Closing open shared memory using its file descriptor.
-	close(fd);
 }
 
-char * readBuffer(char * buffer_name, int bytes, int offset) {
+void * readShrareMemoryBlock(char * buffer_name, int bytes, int offset) {
 	// Open shared memory buffer to be read with shm_open syscall. It returns a file descriptor.
 	fd = shm_open (buffer_name,  O_RDONLY  , 00400); 
 	// Reserving memory to store the read value.
-	char * read = (char *) calloc(bytes, sizeof(char));
+	void * read = malloc(bytes);
 	if(fd == ERROR) {
 	   printf("Error openning shared memory buffer: %s\n", strerror(errno));
 	   exit(1);
@@ -59,12 +57,10 @@ char * readBuffer(char * buffer_name, int bytes, int offset) {
 	}
 	// Copy the data given by the shared memory buffer into the read value reserved memory.
 	memcpy(read, ptr + offset, bytes);
-	// Closing open shared memory using its file descriptor.
-	close(fd);
 	return read;
 }
 
-void writeBuffer(char * buffer_name, char * message, int offset) {
+void writeShrareMemoryBlock(char * buffer_name, void * data, int offset) {
 	// Open shared memory buffer to be written with shm_open syscall. It returns a file descriptor.
 	fd = shm_open (buffer_name,  O_RDWR  , 00200); 
 	if(fd == ERROR)
@@ -72,20 +68,23 @@ void writeBuffer(char * buffer_name, char * message, int offset) {
 	   printf("Error file descriptor %s\n", strerror(errno));
 	   exit(1);
 	}
+	// Getting the shared memory object struct for getting the shared memory buffer size.
+	if(fstat(fd, &shm_obj) == ERROR) {
+	   printf("Error getting stat struct.\n");
+	   exit(1);
+	}
 	// Mapping the shared memory buffer for writing into it.
-	ptr = mmap(NULL, strlen(message), PROT_WRITE, MAP_SHARED, fd, 0);
+	ptr = mmap(NULL, shm_obj.st_size, PROT_WRITE, MAP_SHARED, fd, 0);
 	if(ptr == MAP_FAILED)
 	{
 	  printf("Map failed in write process: %s\n", strerror(errno));
 	  exit(1);
 	}
 	// Copy the data given by the message parameter into the shared memory buffer position offset.
-	memcpy(ptr + offset, message, strlen(message));
-	// Closing open shared memory using its file descriptor.
-	close(fd);
+	memcpy(ptr + offset, data, shm_obj.st_size);
 }
 
-void deleteBuffer(char * buffer_name) {
+void deleteShrareMemoryBlock(char * buffer_name) {
 	// Setting free the shared memory buffer with shm_unlink syscall.
 	shm_unlink(buffer_name);
 }

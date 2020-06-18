@@ -1,9 +1,9 @@
 #ifndef _BUFFERHNADLER_H 
 #define _BUFFERHNADLER_H  
 
-void createBuffer(char * buffer_name, int size);
-char * readBuffer(char * buffer_name, int bytes, int offset);
-void writeBuffer(char * buffer_name, char * message, int offset);
-void deleteBuffer(char * buffer_name);
+void createShrareMemoryBlock(char * buffer_name, int size);
+void * readShrareMemoryBlock(char * buffer_name, int bytes, int offset);
+void writeShrareMemoryBlock(char * buffer_name, void * data, int offset);
+void deleteShrareMemoryBlock(char * buffer_name);
 
 #endif

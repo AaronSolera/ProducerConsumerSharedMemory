@@ -24,16 +24,16 @@ int main(int argc, char *argv[]) {
 		printf("%s\n", "You must write 2 arguments: buffer name and seconds mean.");
 		exit(1);
 	}
-	/*
-	createBuffer(shm_name, 8);
-	writeBuffer(shm_name, "HolaCoca", 0);
-	char * msg = readBuffer(shm_name, 8, 0);
+	
+	createShrareMemoryBlock(shm_name, 8);
+	writeShrareMemoryBlock(shm_name, "HolaCoca", 0);
+	char * msg = readShrareMemoryBlock(shm_name, 8, 0);
 	printf("%s\n", msg);
-	writeBuffer(shm_name, "Mota", 4);
-	msg = readBuffer(shm_name, 8, 0);
+	writeShrareMemoryBlock(shm_name, "Mota", 4);
+	msg = readShrareMemoryBlock(shm_name, 8, 0);
 	printf("%s\n", msg);
 	free(msg);
-	deleteBuffer(shm_name); 
-	*/
+	deleteShrareMemoryBlock(shm_name); 
+
 	return 0;
 }
