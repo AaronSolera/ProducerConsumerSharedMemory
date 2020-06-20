@@ -35,7 +35,7 @@ void createShareMemoryBlock(char * buffer_name, int size)
 	}
 }
 
-void * readFromShareMemoryBlock(char * buffer_name, int bytes, int offset) 
+void * readFromShareMemoryBlock1(char * buffer_name, int bytes, int offset) 
 {
 	// Open shared memory buffer to be read with shm_open syscall. It returns a file descriptor.
 	fd = shm_open (buffer_name,  O_RDONLY  , 00400); 

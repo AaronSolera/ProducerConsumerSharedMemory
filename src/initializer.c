@@ -6,6 +6,7 @@
 #include <bufferhandler.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include "global.h"
 
 void createSemaphore(char *name, int value);
 
@@ -31,7 +32,7 @@ int main(int argc, char *argv[])
 	createSemaphore(producers_sem_name, buffer_lenght - 1);
 
 	char *consumers_sem_name = generateTagName(buffer_name, CONSUMER_SEM_TAG);
-	createSemaphore(consumers_sem_name. buffer_lenght - 1);
+	createSemaphore(consumers_sem_name, buffer_lenght - 1);
 
 	//-------------------------------------------------------------------------------------------------------
 	// Initializes producers shared variables and his corresponding semaphore
@@ -43,7 +44,7 @@ int main(int argc, char *argv[])
 
 	char *shmp_name = generateTagName(buffer_name, PRODUCER_SHM_TAG);
 	createShareMemoryBlock(shmp_name, sizeof(struct shm_producers));
-	writeInShrareMemoryBlock(shmp_name, &shmp, 0);
+	writeInShareMemoryBlock(shmp_name, &shmp, 0);
 
 	char *shmp_sem_name = generateTagName(buffer_name, PRODUCER_SHM_SEM_TAG);
 	createSemaphore(shmp_sem_name, 1);
@@ -57,7 +58,7 @@ int main(int argc, char *argv[])
 
 	char *shmc_name = generateTagName(buffer_name, CONSUMER_SHM_TAG);
 	createShareMemoryBlock(shmc_name, sizeof(struct shm_consumers));
-	writeInShrareMemoryBlock(shmc_name, &shmc, 0);
+	writeInShareMemoryBlock(shmc_name, &shmc, 0);
 
 	char *shmc_sem_name = generateTagName(buffer_name, CONSUMER_SHM_SEM_TAG);
 	createSemaphore(shmc_sem_name, 1);
