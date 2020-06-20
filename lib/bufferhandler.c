@@ -20,7 +20,8 @@ int fd;
 char *ptr;
 struct stat shm_obj;
 
-void createShrareMemoryBlock(char * buffer_name, int size) {
+void createShareMemoryBlock(char * buffer_name, int size) 
+{
 	// Open and create shared memory buffer with shm_open syscall. It returns a file descriptor.
 	fd = shm_open (buffer_name, O_CREAT | O_RDWR  ,00700); 
 	if(fd == ERROR) {
@@ -34,7 +35,8 @@ void createShrareMemoryBlock(char * buffer_name, int size) {
 	}
 }
 
-void * readShrareMemoryBlock(char * buffer_name, int bytes, int offset) {
+void * readFromShareMemoryBlock(char * buffer_name, int bytes, int offset) 
+{
 	// Open shared memory buffer to be read with shm_open syscall. It returns a file descriptor.
 	fd = shm_open (buffer_name,  O_RDONLY  , 00400); 
 	// Reserving memory to store the read value.
@@ -60,7 +62,8 @@ void * readShrareMemoryBlock(char * buffer_name, int bytes, int offset) {
 	return read;
 }
 
-void writeShrareMemoryBlock(char * buffer_name, void * data, int offset) {
+void writeInShareMemoryBlock(char * buffer_name, void * data, int offset) 
+{
 	// Open shared memory buffer to be written with shm_open syscall. It returns a file descriptor.
 	fd = shm_open (buffer_name,  O_RDWR  , 00200); 
 	if(fd == ERROR)
@@ -84,7 +87,8 @@ void writeShrareMemoryBlock(char * buffer_name, void * data, int offset) {
 	memcpy(ptr + offset, data, shm_obj.st_size);
 }
 
-void deleteShrareMemoryBlock(char * buffer_name) {
+void deleteShareMemoryBlock(char * buffer_name) 
+{
 	// Setting free the shared memory buffer with shm_unlink syscall.
 	shm_unlink(buffer_name);
 }

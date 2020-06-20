@@ -9,12 +9,6 @@
 #include <unistd.h>
 #include <errno.h>
 
-struct Consumer
-{
-	int PID;
-	int op_mode;
-} 
-consumer;
 
 int main(int argc, char *argv[])
 {
@@ -58,6 +52,39 @@ int main(int argc, char *argv[])
 	printf("%s\n", ptr_shm);
 
 	close(fd);
+
+/*
+	char *buffer_name = argv[1];
+
+	int buffer_size = atoi(argv[2]);
+
+	char *shmp_name = malloc(strlen(buffer_name) + sizeof(producer_tag));
+	strcpy(shmp_name, buffer_name);
+	strcat(shmp_name, producer_tag);
+
+	char *shmp_sem_name = malloc(strlen(shmp_name) + sizeof(semaphore_tag));
+	strcpy(shmp_sem_name, shmp_name);
+	strcat(shmp_sem_name, semaphore_tag);
+
+	char *shmc_name = malloc(strlen(buffer_name) + sizeof(consumer_tag));
+	strcpy(shmc_name, buffer_name);
+	strcat(shmc_name, consumer_tag);
+
+	char *shmc_sem_name = malloc(strlen(shmc_name) + sizeof(semaphore_tag));
+	strcpy(shmc_sem_name, shmc_name);
+	strcat(shmc_sem_name, semaphore_tag);
+
+	printf("%s\n", buffer_name);
+	printf("%s\n", shmp_name);
+	printf("%s\n", shmp_sem_name);
+	printf("%s\n", shmc_name);
+	printf("%s\n", shmc_sem_name);
+
+	free(shmp_name);
+	free(shmp_sem_name);
+	free(shmc_name);
+	free(shmc_sem_name);
+*/
 
 	return 0;
 }
