@@ -60,13 +60,13 @@ void initializesProducer(char *buffer_name, int random_times_mean)
 	producer.PID = getpid();
 	producer.times_mean = random_times_mean;
 
-	readFromShareMemoryBlock(buffer_name, &producer.buffer);
+	producer.buffer = (struct Message *) readFromShareMemoryBlock(buffer_name);
 
 	char *producers_sem_name = generateTagName(buffer_name, PRODUCER_SEM_TAG);
 	producer.buffer_sem = openSemaphore(producers_sem_name);
 
 	char *shmp_name = generateTagName(buffer_name, PRODUCER_SHM_TAG);
-	readFromShareMemoryBlock(shmp_name, &producer.shmp);
+	producer.shmp = (struct shm_producers *) readFromShareMemoryBlock(shmp_name);
 
 	char *shmp_sem_name = generateTagName(buffer_name, PRODUCER_SHM_SEM_TAG);
 	producer.shmp_sem = openSemaphore(shmp_sem_name);
@@ -96,5 +96,5 @@ void writeNewMessage(int index)
 
 	// Writes the new message to the corresponding buffer index
 	printf("%p\n", producer.buffer);
-	memcpy(producer.buffer + index * sizeof(struct Message), &new_msg, sizeof(struct Message));
+	memcpy(producer.buffer + index, &new_msg, sizeof(struct Message));
 }

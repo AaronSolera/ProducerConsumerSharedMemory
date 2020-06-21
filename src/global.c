@@ -27,7 +27,7 @@ void * readFromShareMemoryBlock(char *buffer_name)
 	struct stat shm_obj;
 
 	// Open shared memory buffer to be read with shm_open syscall. It returns a file descriptor.
-	int fd = shm_open (buffer_name,  O_RDONLY  , 00400); 
+	int fd = shm_open (buffer_name,  O_RDWR  , 0666); 
 
 	if(fd == -1) {
 	   printf("Error openning shared memory buffer: %s\n", strerror(errno));
@@ -41,7 +41,7 @@ void * readFromShareMemoryBlock(char *buffer_name)
 	}
 
 	// Mapping the shared memory buffer for accessing it.
-	void *ptr = mmap(NULL, shm_obj.st_size, PROT_READ, MAP_SHARED, fd, 0);
+	void *ptr = mmap(NULL, shm_obj.st_size,  PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
 
 	if (ptr == MAP_FAILED)
 	{

@@ -68,7 +68,7 @@ char * generateTagName(char *name, const char *tag);
 
 sem_t * openSemaphore(char *name);
 
-void readFromShareMemoryBlock(char *buffer_name, void * ptr);
+void * readFromShareMemoryBlock(char *buffer_name);
 
 //---------------------------------------------------------------------------------------------------
 
@@ -94,7 +94,7 @@ sem_t * openSemaphore(char *name)
 	return semaphore;
 }
 
-void readFromShareMemoryBlock(char *buffer_name, void * ptr) 
+void * readFromShareMemoryBlock(char *buffer_name) 
 {
 	struct stat shm_obj;
 
@@ -113,11 +113,13 @@ void readFromShareMemoryBlock(char *buffer_name, void * ptr)
 	}
 
 	// Mapping the shared memory buffer for accessing it.
-	ptr = mmap(NULL, shm_obj.st_size, PROT_READ, MAP_SHARED, fd, 0);
+	void * ptr = mmap(NULL, shm_obj.st_size, PROT_READ, MAP_SHARED, fd, 0);
 
 	if (ptr == MAP_FAILED)
 	{
 	  printf("Map failed in read process: %s\n", strerror(errno));
 	  exit(1);
 	}
+
+	return ptr;
 }
