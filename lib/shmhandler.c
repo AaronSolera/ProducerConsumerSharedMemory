@@ -23,7 +23,7 @@ struct stat shm_obj;
 void createShareMemoryBlock(char * buffer_name, int size) 
 {
 	// Open and create shared memory buffer with shm_open syscall. It returns a file descriptor.
-	fd = shm_open (buffer_name, O_CREAT | O_RDWR  ,00700); 
+	int fd = shm_open (buffer_name, O_CREAT | O_RDWR  ,00700); 
 	if(fd == ERROR) {
 	   printf("Error creating shared memory buffer.\n");
 	   exit(1);
@@ -35,37 +35,10 @@ void createShareMemoryBlock(char * buffer_name, int size)
 	}
 }
 
-void * readFromShareMemoryBlock1(char * buffer_name, int bytes, int offset) 
-{
-	// Open shared memory buffer to be read with shm_open syscall. It returns a file descriptor.
-	fd = shm_open (buffer_name,  O_RDONLY  , 00400); 
-	// Reserving memory to store the read value.
-	void * read = malloc(bytes);
-	if(fd == ERROR) {
-	   printf("Error openning shared memory buffer: %s\n", strerror(errno));
-	   exit(1);
-	}
-	// Getting the shared memory object struct for getting the shared memory buffer size.
-	if(fstat(fd, &shm_obj) == ERROR) {
-	   printf("Error getting stat struct.\n");
-	   exit(1);
-	}
-	// Mapping the shared memory buffer for accessing it.
-	ptr = mmap(NULL, shm_obj.st_size, PROT_READ, MAP_SHARED, fd, 0);
-	if(ptr == MAP_FAILED)
-	{
-	  printf("Map failed in read process: %s\n", strerror(errno));
-	  exit(1);
-	}
-	// Copy the data given by the shared memory buffer into the read value reserved memory.
-	memcpy(read, ptr + offset, bytes);
-	return read;
-}
 
-void writeInShareMemoryBlock(char * buffer_name, void * data, int offset) 
-{
+void * mapShareMemoryBlock(char * buffer_name){
 	// Open shared memory buffer to be written with shm_open syscall. It returns a file descriptor.
-	fd = shm_open (buffer_name,  O_RDWR  , 00200); 
+	int fd = shm_open (buffer_name,  O_RDWR  , 00200); 
 	if(fd == ERROR)
 	{
 	   printf("Error file descriptor %s\n", strerror(errno));
@@ -77,14 +50,19 @@ void writeInShareMemoryBlock(char * buffer_name, void * data, int offset)
 	   exit(1);
 	}
 	// Mapping the shared memory buffer for writing into it.
-	ptr = mmap(NULL, shm_obj.st_size, PROT_WRITE, MAP_SHARED, fd, 0);
+	void * ptr = mmap(NULL, shm_obj.st_size, PROT_WRITE | PROT_READ, MAP_SHARED, fd, 0);
 	if(ptr == MAP_FAILED)
 	{
 	  printf("Map failed in write process: %s\n", strerror(errno));
 	  exit(1);
 	}
+	return ptr;
+}
+
+void writeInShareMemoryBlock(void * ptr, void * data, int size, int offset) 
+{
 	// Copy the data given by the message parameter into the shared memory buffer position offset.
-	memcpy(ptr + offset, data, shm_obj.st_size);
+	memcpy(ptr + (offset * size), data, size);
 }
 
 void deleteShareMemoryBlock(char * buffer_name) 

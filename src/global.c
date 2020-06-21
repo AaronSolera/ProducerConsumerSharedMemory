@@ -47,7 +47,7 @@ void * readFromShareMemoryBlock(char *buffer_name)
 	{
 	  printf("Map failed in read process: %s\n", strerror(errno));
 	  exit(1);
-	}
+	
 
 	return ptr;
 }

@@ -28,6 +28,8 @@
 #define PRODUCER_SHM_SEM_TAG	"_consumers_shm_sem"
 #define CONSUMER_SHM_SEM_TAG	"_producers_shm_sem"
 #define MAX_MAGIC_NUMBER		6
+#define TRUE 					1
+#define FALSE 					0
 
 struct Date 
 {
@@ -68,8 +70,6 @@ char * generateTagName(char *name, const char *tag);
 
 sem_t * openSemaphore(char *name);
 
-void * readFromShareMemoryBlock(char *buffer_name);
-
 //---------------------------------------------------------------------------------------------------
 
 char * generateTagName(char *name, const char *tag)
@@ -92,34 +92,4 @@ sem_t * openSemaphore(char *name)
 	}
 
 	return semaphore;
-}
-
-void * readFromShareMemoryBlock(char *buffer_name) 
-{
-	struct stat shm_obj;
-
-	// Open shared memory buffer to be read with shm_open syscall. It returns a file descriptor.
-	int fd = shm_open (buffer_name,  O_RDONLY  , 00400); 
-
-	if(fd == -1) {
-	   printf("Error openning shared memory buffer: %s\n", strerror(errno));
-	   exit(1);
-	}
-
-	// Getting the shared memory object struct for getting the shared memory buffer size.
-	if(fstat(fd, &shm_obj) == -1) {
-	   printf("Error getting stat struct.\n");
-	   exit(1);
-	}
-
-	// Mapping the shared memory buffer for accessing it.
-	void * ptr = mmap(NULL, shm_obj.st_size, PROT_READ, MAP_SHARED, fd, 0);
-
-	if (ptr == MAP_FAILED)
-	{
-	  printf("Map failed in read process: %s\n", strerror(errno));
-	  exit(1);
-	}
-
-	return ptr;
 }

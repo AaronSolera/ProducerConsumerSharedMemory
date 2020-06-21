@@ -3,9 +3,10 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <semaphore.h>
-#include <bufferhandler.h>
+#include <shmhandler.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <string.h>
 #include "global.h"
 
 void createSemaphore(char *name, int value);
@@ -44,7 +45,8 @@ int main(int argc, char *argv[])
 
 	char *shmp_name = generateTagName(buffer_name, PRODUCER_SHM_TAG);
 	createShareMemoryBlock(shmp_name, sizeof(struct shm_producers));
-	writeInShareMemoryBlock(shmp_name, &shmp, 0);
+	struct shm_producers * shm_producers_ptr = (struct shm_producers *) mapShareMemoryBlock(shmp_name);
+	writeInShareMemoryBlock(shm_producers_ptr, &shmp, sizeof(struct shm_producers), 0);
 
 	char *shmp_sem_name = generateTagName(buffer_name, PRODUCER_SHM_SEM_TAG);
 	createSemaphore(shmp_sem_name, 1);
@@ -58,7 +60,8 @@ int main(int argc, char *argv[])
 
 	char *shmc_name = generateTagName(buffer_name, CONSUMER_SHM_TAG);
 	createShareMemoryBlock(shmc_name, sizeof(struct shm_consumers));
-	writeInShareMemoryBlock(shmc_name, &shmc, 0);
+	struct shm_consumers * shm_consumers_ptr = mapShareMemoryBlock(shmc_name);
+	writeInShareMemoryBlock(shm_consumers_ptr, &shmc, sizeof(struct shm_consumers), 0);
 
 	char *shmc_sem_name = generateTagName(buffer_name, CONSUMER_SHM_SEM_TAG);
 	createSemaphore(shmc_sem_name, 1);

@@ -8,14 +8,14 @@ RM_O = cd ./lib && rm *.o
 call: producer initializer
 	$(RM_O)
 
-producer: libbufferhandler.a
-	$(CC) -o ./bin/producer ./src/producer.c -I./include ./lib/libbufferhandler.a -lrt -pthread
+producer: libshmhandler.a
+	$(CC) -o ./bin/producer ./src/producer.c -I./include ./lib/libshmhandler.a -lm -lrt -pthread
 
-initializer: libbufferhandler.a
-	$(CC) -o ./bin/initializer ./src/initializer.c -I./include ./lib/libbufferhandler.a -lrt -pthread
+initializer: libshmhandler.a
+	$(CC) -o ./bin/initializer ./src/initializer.c -I./include ./lib/libshmhandler.a -lm -lrt -pthread
 
-libbufferhandler.a: bufferhandler.o
-	$(LIB) $(MAKE_STATIC_LIB) libbufferhandler.a bufferhandler.o
+libshmhandler.a: shmhandler.o
+	$(LIB) $(MAKE_STATIC_LIB) libshmhandler.a shmhandler.o
 
-bufferhandler.o:
-	$(LIB) $(CC) -c bufferhandler.c -I../include
+shmhandler.o:
+	$(LIB) $(CC) -c shmhandler.c -I../include
