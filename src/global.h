@@ -70,7 +70,13 @@ char * generateTagName(char *name, const char *tag);
 
 sem_t * openSemaphore(char *name);
 
+int not(int boolean);
+
 //---------------------------------------------------------------------------------------------------
+int not(int boolean)
+{
+	return 1 - boolean;
+}
 
 char * generateTagName(char *name, const char *tag)
 {

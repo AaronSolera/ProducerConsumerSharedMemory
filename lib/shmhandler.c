@@ -23,7 +23,7 @@ struct stat shm_obj;
 void createShareMemoryBlock(char * buffer_name, int size) 
 {
 	// Open and create shared memory buffer with shm_open syscall. It returns a file descriptor.
-	int fd = shm_open (buffer_name, O_CREAT | O_RDWR  ,00700); 
+	fd = shm_open (buffer_name, O_CREAT | O_RDWR  ,00700); 
 	if(fd == ERROR) {
 	   printf("Error creating shared memory buffer.\n");
 	   exit(1);
@@ -35,10 +35,9 @@ void createShareMemoryBlock(char * buffer_name, int size)
 	}
 }
 
-
 void * mapShareMemoryBlock(char * buffer_name){
 	// Open shared memory buffer to be written with shm_open syscall. It returns a file descriptor.
-	int fd = shm_open (buffer_name,  O_RDWR  , 00200); 
+	fd = shm_open (buffer_name,  O_RDWR  , 00200); 
 	if(fd == ERROR)
 	{
 	   printf("Error file descriptor %s\n", strerror(errno));
@@ -57,6 +56,22 @@ void * mapShareMemoryBlock(char * buffer_name){
 	  exit(1);
 	}
 	return ptr;
+}
+
+int getShareMemoryBlockSize(char * buffer_name){
+	// Open shared memory buffer to be written with shm_open syscall. It returns a file descriptor.
+	fd = shm_open (buffer_name,  O_RDWR  , 00200); 
+	if(fd == ERROR)
+	{
+	   printf("Error file descriptor %s\n", strerror(errno));
+	   exit(1);
+	}
+	// Getting the shared memory object struct for getting the shared memory buffer size.
+	if(fstat(fd, &shm_obj) == ERROR) {
+	   printf("Error getting stat struct.\n");
+	   exit(1);
+	}
+	return shm_obj.st_size;
 }
 
 void writeInShareMemoryBlock(void * ptr, void * data, int size, int offset) 

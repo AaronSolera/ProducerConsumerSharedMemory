@@ -25,6 +25,9 @@ struct Producer
 	sem_t *shmp_sem;
 } producer;
 
+int kill = FALSE;
+int shm_block_size;
+
 int main(int argc, char *argv[]) 
 {
 	if(argc != 3)
@@ -36,40 +39,51 @@ int main(int argc, char *argv[])
 	}
     
 	initializesProducer(argv[1], atoi(argv[2]));
-	writeNewMessage(0);
+	int sem_value;
 
-	/*
-	while(TRUE){
+	while(not(kill)){
+		sleep(producer.times_mean);
 		sem_wait(producer.shmp_sem);
 		sem_wait(producer.buffer_sem);
-		printf("Running");
-		//writeNewMessage(0);
-		//writeInShareMemoryBlock(argv[1], &new_msg, 0);
-		//sem_wait(producer.buffer_sem);
-		//sem_wait(producer.shmp_sem);
-	}*/
+		sem_getvalue(producer.buffer_sem, &sem_value);
+		printf("%i\n", sem_value);
+		printf("----------------------------------------------\n");
+		printf("|A message was written in shared memory block|\n");
+		printf("|--------------------------------------------|\n");
+		printf("|Buffer index     %-10i                 |\n", producer.shmp->buffer_index);
+		printf("|Consumers alive                             |\n");
+		printf("|Producers alive  %-10i                 |\n", producer.shmp->producers_total);
+		printf("----------------------------------------------\n");
+		writeNewMessage(producer.shmp->buffer_index);
+		// This line increments index to be written in messages buffer.
+		producer.shmp->buffer_index++;
+		producer.shmp->buffer_index = producer.shmp->buffer_index % (shm_block_size / sizeof(struct Message));
+		sem_post(producer.buffer_sem);
+		sem_post(producer.shmp_sem);
+	}
 
 	return 0;
 }
-
 
 void initializesProducer(char *buffer_name, double random_times_mean)
 {
 	producer.PID = getpid();
 	producer.times_mean = exp(random_times_mean);
 
-	//producer.buffer = (struct Message *) readFromShareMemoryBlock(buffer_name);
 	producer.buffer = (struct Message *) mapShareMemoryBlock(buffer_name);
 
 	char *producers_sem_name = generateTagName(buffer_name, PRODUCER_SEM_TAG);
 	producer.buffer_sem = openSemaphore(producers_sem_name);
 
 	char *shmp_name = generateTagName(buffer_name, PRODUCER_SHM_TAG);
-	//producer.shmp = (struct shm_producers *) readFromShareMemoryBlock(shmp_name);
+
 	producer.shmp = (struct shm_producers *) mapShareMemoryBlock(shmp_name);
 
 	char *shmp_sem_name = generateTagName(buffer_name, PRODUCER_SHM_SEM_TAG);
 	producer.shmp_sem = openSemaphore(shmp_sem_name);
+
+	producer.shmp->producers_total++;
+	shm_block_size = getShareMemoryBlockSize(buffer_name);
 
 	free(producers_sem_name);
 	free(shmp_name);
