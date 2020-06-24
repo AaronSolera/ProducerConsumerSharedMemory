@@ -19,3 +19,4 @@ libshmhandler.a: shmhandler.o
 
 shmhandler.o:
 	$(LIB) $(CC) -c shmhandler.c -I../include
+

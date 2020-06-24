@@ -1,19 +1,9 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <sys/mman.h>
-#include <sys/stat.h>
-#include <sys/types.h>   
-#include <fcntl.h>           
-#include <unistd.h>
-#include <errno.h>
-#include <string.h>
-
 /*  
 *   Programar en C: Memoria Compartida POSIX. (Shared Memory). Linux
 *   This code is a modification obtained at the website https://github.com/WhileTrueThenDream/ExamplesCLinuxUserSpace
 *   Creator: WhileTrueThenDream, Mar 4th, 2020.
 */
-
+#include "shmhandler.h"
 #define ERROR -1
 
 int fd;
@@ -84,4 +74,31 @@ void deleteShareMemoryBlock(char * buffer_name)
 {
 	// Setting free the shared memory buffer with shm_unlink syscall.
 	shm_unlink(buffer_name);
+}
+
+int not(int boolean)
+{
+	return 1 - boolean;
+}
+
+char * generateTagName(char *name, const char *tag)
+{
+	char *tag_name = (char *) calloc(strlen(name) + strlen(tag), sizeof(char));
+	strcpy(tag_name, name);
+	strcat(tag_name, tag);
+
+	return tag_name;
+}
+
+sem_t * openSemaphore(char *name)
+{
+	sem_t * semaphore = sem_open(name, O_RDWR);
+
+	if (semaphore == SEM_FAILED)
+	{
+		perror("sem_open(3) error");
+        exit(EXIT_FAILURE);
+	}
+
+	return semaphore;
 }

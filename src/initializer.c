@@ -1,13 +1,4 @@
-#include <stdio.h>
-#include <stdlib.h> 
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <semaphore.h>
 #include <shmhandler.h>
-#include <sys/types.h>
-#include <unistd.h>
-#include <string.h>
-#include "global.h"
 
 void createSemaphore(char *name, int value);
 
@@ -20,7 +11,6 @@ int main(int argc, char *argv[])
 		printf("\033[0m");
 		exit(EXIT_FAILURE);
 	}
-
 	//-------------------------------------------------------------------------------------------------------
 	// Initializes the buffer and the corresponding semaphores for producers and consumers
 	//-------------------------------------------------------------------------------------------------------
@@ -30,10 +20,10 @@ int main(int argc, char *argv[])
 	createShareMemoryBlock(buffer_name, buffer_lenght * sizeof(struct Message));
 
 	char *producers_sem_name = generateTagName(buffer_name, PRODUCER_SEM_TAG);
-	createSemaphore(producers_sem_name, buffer_lenght - 1);
+	createSemaphore(producers_sem_name, buffer_lenght);
 
 	char *consumers_sem_name = generateTagName(buffer_name, CONSUMER_SEM_TAG);
-	createSemaphore(consumers_sem_name, buffer_lenght - 1);
+	createSemaphore(consumers_sem_name, 0);
 
 	//-------------------------------------------------------------------------------------------------------
 	// Initializes producers shared variables and his corresponding semaphore

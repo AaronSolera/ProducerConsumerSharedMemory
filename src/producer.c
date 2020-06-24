@@ -1,18 +1,11 @@
-#include <stdio.h>
-#include <stdlib.h>
 #include <shmhandler.h>
-#include <sys/types.h>
-#include <unistd.h>
-#include <time.h>
-#include <math.h>
-#include "global.h"
 
 void initializesProducer(char *buffer_name, double random_times_mean);
+void finalizeProducer();
 void writeNewMessage(int index);
 double exp(double x);
 
-struct Producer
-{
+struct Producer {
 	pid_t PID;
 	double times_mean;
 	int produced_messages;
@@ -22,16 +15,17 @@ struct Producer
 	struct Message *buffer;
 	sem_t *buffer_sem;
 	struct shm_producers *shmp;
+	struct shm_consumers * shmc;
 	sem_t *shmp_sem;
+	int current_buffer_index;
 } producer;
 
 int kill = FALSE;
 int shm_block_size;
+double r;
 
-int main(int argc, char *argv[]) 
-{
-	if(argc != 3)
-	{
+int main(int argc, char *argv[]) {
+	if(argc != 3) {
 		printf("\033[1;31m");
 		printf("%s\n", "Error: you must write 2 arguments, buffer name and mean of the random times");
 		printf("\033[0m");
@@ -41,32 +35,37 @@ int main(int argc, char *argv[])
 	initializesProducer(argv[1], atoi(argv[2]));
 	int sem_value;
 
-	while(not(kill)){
+	while(not(kill)) {
 		sleep(producer.times_mean);
+		
 		sem_wait(producer.shmp_sem);
-		sem_wait(producer.buffer_sem);
-		sem_getvalue(producer.buffer_sem, &sem_value);
-		printf("%i\n", sem_value);
-		printf("----------------------------------------------\n");
-		printf("|A message was written in shared memory block|\n");
-		printf("|--------------------------------------------|\n");
-		printf("|Buffer index     %-10i                 |\n", producer.shmp->buffer_index);
-		printf("|Consumers alive                             |\n");
-		printf("|Producers alive  %-10i                 |\n", producer.shmp->producers_total);
-		printf("----------------------------------------------\n");
-		writeNewMessage(producer.shmp->buffer_index);
-		// This line increments index to be written in messages buffer.
+		producer.current_buffer_index = producer.shmp->buffer_index;
 		producer.shmp->buffer_index++;
 		producer.shmp->buffer_index = producer.shmp->buffer_index % (shm_block_size / sizeof(struct Message));
-		sem_post(producer.buffer_sem);
 		sem_post(producer.shmp_sem);
+		//sem_getvalue(producer.buffer_sem, &sem_value);
+		//printf("%i\n", sem_value);
+		if(producer.shmp->buffer_isActive) {
+			sem_wait(producer.buffer_sem);
+			writeNewMessage(producer.current_buffer_index);
+			printf("\033[1;32m----------------------------------------------\n");
+			printf("|A message was written in shared memory block|\n");
+			printf("|--------------------------------------------|\033[0;32m\n");
+			printf("|Buffer index     %-10i                 |\n", producer.current_buffer_index);
+			printf("|Consumers alive  %-10i                 |\n", producer.shmc->consumers_total);
+			printf("|Producers alive  %-10i                 |\n", producer.shmp->producers_total);
+			printf("----------------------------------------------\033[0m\n");
+			// This line increments index to be written in messages buffer.
+		} else {
+			finalizeProducer();
+		}
+		
 	}
 
 	return 0;
 }
 
-void initializesProducer(char *buffer_name, double random_times_mean)
-{
+void initializesProducer(char *buffer_name, double random_times_mean) {
 	producer.PID = getpid();
 	producer.times_mean = exp(random_times_mean);
 
@@ -76,8 +75,10 @@ void initializesProducer(char *buffer_name, double random_times_mean)
 	producer.buffer_sem = openSemaphore(producers_sem_name);
 
 	char *shmp_name = generateTagName(buffer_name, PRODUCER_SHM_TAG);
-
 	producer.shmp = (struct shm_producers *) mapShareMemoryBlock(shmp_name);
+
+	char *shmc_name = generateTagName(buffer_name, CONSUMER_SHM_TAG);
+	producer.shmc = (struct shm_consumers *) mapShareMemoryBlock(shmc_name);
 
 	char *shmp_sem_name = generateTagName(buffer_name, PRODUCER_SHM_SEM_TAG);
 	producer.shmp_sem = openSemaphore(shmp_sem_name);
@@ -87,12 +88,16 @@ void initializesProducer(char *buffer_name, double random_times_mean)
 
 	free(producers_sem_name);
 	free(shmp_name);
+	free(shmc_name);
 	free(shmp_sem_name);
 }
 
+void finalizeProducer() {
+	producer.shmp->producers_total--;
+	kill = TRUE;
+}
 
-void writeNewMessage(int index)
-{
+void writeNewMessage(int index) {
 	time_t raw_time;
  	time(&raw_time);
   	struct tm *time_info = localtime(&raw_time);
@@ -111,8 +116,7 @@ void writeNewMessage(int index)
 	writeInShareMemoryBlock(producer.buffer, &new_msg, sizeof(struct Message), index);
 }
 
-double exp(double x){
-	double r;
+double exp(double x) {
 	r = rand() / (RAND_MAX + 1.0);
 	return -log(1 - r) / x;
 }
