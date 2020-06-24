@@ -1,4 +1,4 @@
-#ifndef _SHMHANDLER_H 
+#ifndef _SHMHANDLER_H
 #define _SHMHANDLER_H  
 
 #include <stdio.h>
@@ -14,7 +14,6 @@
 #include <sys/mman.h>
 #include <errno.h>
 #include <string.h>
-
 
 #define PRODUCER_SEM_TAG		"_producers_sem"
 #define CONSUMER_SEM_TAG		"_consumers_sem"

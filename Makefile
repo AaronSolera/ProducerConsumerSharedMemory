@@ -5,7 +5,7 @@ RM_O = cd ./lib && rm *.o
 
 .PHONY: call
 
-call: producer initializer
+call: producer initializer consumer
 	$(RM_O)
 
 producer: libshmhandler.a
@@ -13,6 +13,9 @@ producer: libshmhandler.a
 
 initializer: libshmhandler.a
 	$(CC) -o ./bin/initializer ./src/initializer.c -I./include ./lib/libshmhandler.a -lm -lrt -pthread
+
+consumer: libshmhandler.a
+	$(CC) -o ./bin/consumer ./src/consumer.c -I./include ./lib/libshmhandler.a -lm -lrt -pthread
 
 libshmhandler.a: shmhandler.o
 	$(LIB) $(MAKE_STATIC_LIB) libshmhandler.a shmhandler.o

@@ -115,8 +115,12 @@ void initializesProducer(char *buffer_name, double random_times_mean) {
 	// Opening shared producer global variables buffer semaphore and storing its file descriptor
 	char *shmp_sem_name = generateTagName(buffer_name, PRODUCER_SHM_SEM_TAG);
 	producer.shmp_sem = openSemaphore(shmp_sem_name);
+	// Decrementing global producer bufer semaphore
+	sem_wait(producer.shmp_sem);
 	// Incrementing total producers value
 	producer.shmp->producers_total++;
+	// Incrementing global producer bufer semaphore
+	sem_post(producer.shmp_sem);
 	// Storing shared messages buffer size for writing index computing
 	shm_block_size = getShareMemoryBlockSize(buffer_name);
 	// Setting some timing and counting statatistic values to 0
@@ -132,8 +136,12 @@ void initializesProducer(char *buffer_name, double random_times_mean) {
 }
 
 void finalizeProducer() {
-	// Decrementing total producers value
+	// Decrementing global producer bufer semaphore
+	sem_wait(producer.shmp_sem);
+	// Incrementing total producers value
 	producer.shmp->producers_total--;
+	// Incrementing global producer bufer semaphore
+	sem_post(producer.shmp_sem);
 	// Setting kill value to TRUE. This is going to end the process, finalizing the main loop decribed before
 	kill = TRUE;
 }
