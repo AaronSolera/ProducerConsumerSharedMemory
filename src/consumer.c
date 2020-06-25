@@ -1,5 +1,7 @@
 #include <shmhandler.h>
 
+#define ENTER_ASCII_CODE 10
+
 struct Consumer
 {
 	pid_t PID;
@@ -10,7 +12,8 @@ struct Consumer
 	char * suspention_reason;
 	double acum_waited_time;
 	double acum_blocked_time;
-	double user_time;
+	int user_stime;
+	int user_ustime;
 	struct Message *buffer;
 	struct shm_consumers *shmc;
 	struct shm_producers *shmp;
@@ -20,8 +23,12 @@ struct Consumer
 } 
 consumer;
 
+// This struct is used for taking user space time
+struct rusage utime;
 // This is value kills the consumer if it is TRUE
 int kill = FALSE;
+// Boolean flag to mode setting
+int key_mode = FALSE;
 // Shared messages buffer size
 int shm_block_size;
 // This stores a random value
@@ -46,8 +53,15 @@ int main(int argc, char *argv[])
 
 	// This main loop ends when kill variable is TRUE
 	while(not(kill)) {
-		// Stopping process with random exponential behavior values
-		sleep(exp(consumer.times_mean));
+		// Checking the set mode
+		if(key_mode){
+			// Waiting for entering key code
+			printf("\033[0;36mPress \033[1;33mEnter\033[0;36m to consume messages from producers...\033[0m\n");
+			while(getchar() != ENTER_ASCII_CODE);
+		}else{
+			// Stopping process with random exponential behavior values
+			sleep(exp(consumer.times_mean));
+		}
 		// Decrement global consumer bufer semaphore
 		sem_wait(consumer.shmc_sem);
 		// Storing consumer writting buffer index value for keeping untouchable for other process
@@ -61,11 +75,8 @@ int main(int argc, char *argv[])
 		sem_wait(consumer.consumers_buffer_sem);
 		// Reading a new message in the shared buffer
 		readMessage(consumer.current_buffer_index);
-		// Incrementing consumed messages number just for statistics
-		consumer.consumed_messages++;
-		// Incrementing consumer semaphore to access the shared messages buffer
-		sem_post(consumer.producers_buffer_sem);
 	}
+
 	// Printing in terminal a finalized producer alarm and some statistics
 	printf("\033[1;33m---------------------------------------------------\n");
 	printf("|The cosumer whose id is %-5i has been finalized |\n", consumer.PID);
@@ -73,7 +84,7 @@ int main(int argc, char *argv[])
 	printf("|\033[0;33mConsumed messages %-10d                     \033[1;33m|\n", consumer.consumed_messages);
 	printf("|\033[0;33mWaited time       %-10f                     \033[1;33m|\n", consumer.acum_waited_time);
 	printf("|\033[0;33mBlocked time      %-10f                     \033[1;33m|\n", consumer.acum_blocked_time);
-	printf("|\033[0;33mUser time         %-10f                     \033[1;33m|\n", consumer.user_time);
+	printf("|\033[0;33mUser time         %i.%-5i s                      \033[1;33m|\n", consumer.user_stime, consumer.user_ustime);
 	printf("---------------------------------------------------\033[0m\n");
 	// Printing suspention reason
 	printf("\033[1;31mSuspention reason: %s\033[0m\n", consumer.suspention_reason);
@@ -89,23 +100,26 @@ void initializesConsumer(char *buffer_name, int random_times_mean, int operation
 		printf("\033[0m");
 		exit(1);
 	}
+	// Checking and setting the operation mode
+	if(operation_mode == 1){
+		key_mode = TRUE;
+	}
 
 	consumer.PID = getpid();
 	consumer.times_mean = random_times_mean;
 	consumer.op_mode = operation_mode;
-
+	// Mapping the shared messages buffer block memory
 	consumer.buffer = (struct Message *) mapShareMemoryBlock(buffer_name);
-
 	// Opening consumer buffer access semaphore and storing its file descriptor
 	char *producers_sem_name = generateTagName(buffer_name, PRODUCER_SEM_TAG);
 	consumer.producers_buffer_sem = openSemaphore(producers_sem_name);
 	// Opening consumer buffer access semaphore and storing its file descriptor
 	char *consumers_sem_name = generateTagName(buffer_name, CONSUMER_SEM_TAG);
 	consumer.consumers_buffer_sem = openSemaphore(consumers_sem_name);
-
+	// Mapping shared consumer global variables buffer and storing its memory address
 	char *shmc_name = generateTagName(buffer_name, CONSUMER_SHM_TAG);
 	consumer.shmc = (struct shm_consumers *) mapShareMemoryBlock(shmc_name);
-	// Mapping shared consumer global variables buffer and storing its memory address
+	// Mapping shared producer global variables buffer and storing its memory address
 	char *shmp_name = generateTagName(buffer_name, PRODUCER_SHM_TAG);
 	consumer.shmp = (struct shm_producers *) mapShareMemoryBlock(shmp_name);
 
@@ -123,8 +137,9 @@ void initializesConsumer(char *buffer_name, int random_times_mean, int operation
 	consumer.consumed_messages = 0;
 	consumer.acum_waited_time = 0;
 	consumer.acum_blocked_time = 0;
-	consumer.user_time = 0;
-
+	// Getting process statistic struct
+	getrusage(RUSAGE_SELF, &utime);
+	// Setting free used string allocated memory 
 	free(consumers_sem_name);
 	free(producers_sem_name);
 	free(shmc_name);
@@ -134,6 +149,7 @@ void initializesConsumer(char *buffer_name, int random_times_mean, int operation
 
 void readMessage(int index)
 {
+	
 	struct Message *msg = consumer.buffer + index;
 
 	// System suspend indicator
@@ -145,17 +161,22 @@ void readMessage(int index)
 	{
 		finalizeConsumer();
 		consumer.suspention_reason = "Read key is equal to id % 6.";
-	} else {
-		printf("\033[1;32m----------------------------------------------\n");
-		printf("| A message was read in shared memory block  |\n");
-		printf("|--------------------------------------------|\n");
-		printf("|\033[0;32mBuffer index     %-10i                 \033[1;32m|\n", consumer.current_buffer_index);
-		printf("|\033[0;32mConsumers alive  %-10i                 \033[1;32m|\n", consumer.shmc->consumers_total);
-		printf("|\033[0;32mProducers alive  %-10i                 \033[1;32m|\n", consumer.shmp->producers_total);
-		printf("|--------------------------------------------|\n");
-		printMessageContent(msg);
-		printf("----------------------------------------------\033[0m\n");
 	}
+	// Incrementing consumed messages number just for statistics
+	consumer.consumed_messages++;
+	// Incrementing producer semaphore to access the shared messages buffer
+	sem_post(consumer.producers_buffer_sem);
+
+	printf("\033[1;32m----------------------------------------------\n");
+	printf("| A message was read in shared memory block  |\n");
+	printf("|--------------------------------------------|\n");
+	printf("|\033[0;32mBuffer index     %-10i                 \033[1;32m|\n", consumer.current_buffer_index);
+	printf("|\033[0;32mConsumers alive  %-10i                 \033[1;32m|\n", consumer.shmc->consumers_total);
+	printf("|\033[0;32mProducers alive  %-10i                 \033[1;32m|\n", consumer.shmp->producers_total);
+	printf("|--------------------------------------------|\n");
+	printMessageContent(msg);
+	printf("----------------------------------------------\033[0m\n");
+	
 }
 
 void printMessageContent(struct Message *msg)
@@ -177,5 +198,9 @@ void finalizeConsumer() {
 	consumer.shmc->consumers_total--;
 	// Incrementing global consumer bufer semaphore
 	sem_post(consumer.shmc_sem);
+	// Setting time in user space
+	consumer.user_stime = (int) utime.ru_utime.tv_sec;
+	consumer.user_ustime = (int) utime.ru_utime.tv_usec;
+	// Setting the killing boolean variable
 	kill = TRUE;
 }
