@@ -20,6 +20,7 @@ struct Producer {
 	sem_t  *producer_buffer_sem;
 	sem_t  *consumer_buffer_sem;
 	sem_t  *shmp_sem;
+	sem_t  *shmc_sem; 
 } producer;
 
 // This struct is used for taking user space time
@@ -30,7 +31,7 @@ int kill = FALSE;
 int shm_block_size;
 // This stores a random value
 double r;
-
+int total_consumers;
 int main(int argc, char *argv[]) {
 
 	// Ckecking if executable file gets just 2 arguments
@@ -44,42 +45,44 @@ int main(int argc, char *argv[]) {
 	//int sem_value; <Debuging>
 
 	// This main loop ends when kill variable is TRUE
-	//while(1) {
-		
-		//sem_getvalue(producer.buffer_sem, &sem_value); <Debuging>
-		//printf("%i\n", sem_value); <Debuging>
-		// If keeping alive producer global varible is TRUE, the producer writes a message into the buffer. If not, finalize producer
-		if(producer.shmp->buffer_isActive) {
-			// Decrement global producer bufer semaphore
-			sem_wait(producer.shmp_sem);
-			// Storing producer writting buffer index value for keeping untouchable for other process
-			producer.current_buffer_index = producer.shmp->buffer_index;
-			// This lines increments index to be written in messages buffer.
-			producer.shmp->buffer_index++;
-			producer.shmp->buffer_index = producer.shmp->buffer_index % (shm_block_size / sizeof(struct Message));
-			producer.shmp->buffer_isActive = 0;
-			// Incrementing global producer bufer semaphore
-			sem_post(producer.shmp_sem);
-			// Decrementing producer messages buffer semaphore for blocking one index from that buffer
-			sem_wait(producer.producer_buffer_sem);
-			// Writing a new message into the shared buffer
-			writeNewMessage(producer.current_buffer_index);
-			// Incrementing produced messages number just for statistics
-			producer.produced_messages++;
-			// Incrementing
-			sem_post(producer.consumer_buffer_sem);
-			// Printing in terminal a written message alarm and some statistics
-			printf("\033[1;32m----------------------------------------------\n");
-			printf("|A message was written in shared memory block|\n");
-			printf("|--------------------------------------------|\n");
-			printf("|\033[0;32mBuffer index     %-10i                 \033[1;32m|\n", producer.current_buffer_index);
-			printf("|\033[0;32mConsumers alive  %-10i                 \033[1;32m|\n", producer.shmc->consumers_total);
-			printf("|\033[0;32mProducers alive  %-10i                 \033[1;32m|\n", producer.shmp->producers_total);
-			printf("----------------------------------------------\033[0m\n");
 
-		} 
+	//preguntar cantidad consumers
+	sem_wait(producer.shmc_sem);
+	total_consumers = producer.shmc->consumers_total;
+	sem_post(producer.shmc_sem);
+
+	while(total_consumers > 0) {
 		
-	//}
+		total_consumers--;
+
+		// Decrement global producer bufer semaphore
+		sem_wait(producer.shmp_sem);
+		// Storing producer writting buffer index value for keeping untouchable for other process
+		producer.current_buffer_index = producer.shmp->buffer_index;
+		// This lines increments index to be written in messages buffer.
+		producer.shmp->buffer_index++;
+		producer.shmp->buffer_index = producer.shmp->buffer_index % (shm_block_size / sizeof(struct Message));
+		producer.shmp->buffer_isActive = 0;
+
+		// Incrementing global producer bufer semaphore
+		sem_post(producer.shmp_sem);
+		// Decrementing producer messages buffer semaphore for blocking one index from that buffer
+		sem_wait(producer.producer_buffer_sem);
+		// Writing a new message into the shared buffer
+		writeNewMessage(producer.current_buffer_index);
+		// Incrementing produced messages number just for statistics
+		// Incrementing
+		sem_post(producer.consumer_buffer_sem);
+		// Printing in terminal a written message alarm and some statistics
+		printf("\033[1;32m----------------------------------------------\n");
+		printf("|A message was written in shared memory block|\n");
+		printf("|--------------------------------------------|\n");
+		printf("|\033[0;32mBuffer index     %-10i                 \033[1;32m|\n", producer.current_buffer_index);
+		printf("|\033[0;32mConsumers alive  %-10i                 \033[1;32m|\n", producer.shmc->consumers_total);
+		printf("|\033[0;32mProducers alive  %-10i                 \033[1;32m|\n", producer.shmp->producers_total);
+		printf("----------------------------------------------\033[0m\n");
+
+	}
 
 	// Printing in terminal a finalized producer alarm and some stadistics
 	printf("\033[1;33m---------------------------------------------------\n");
@@ -90,6 +93,8 @@ int main(int argc, char *argv[]) {
 	printf("|\033[0;33mBlocked time      %-10f                     \033[1;33m|\n", producer.sem_blocked_time);
 	printf("|\033[0;33mKernel time       %-10li us                  \033[1;33m|\n", producer.kernel_time);
 	printf("---------------------------------------------------\033[0m\n");
+
+	deleteShareMemoryBlock(argv[1]);
 
 	return 0;
 }
@@ -107,6 +112,9 @@ void initializesProducer(char *buffer_name, double random_times_mean) {
 	// Opening consumer buffer access semaphore and storing its file descriptor
 	char *consumers_sem_name = generateTagName(buffer_name, CONSUMER_SEM_TAG);
 	producer.consumer_buffer_sem = openSemaphore(consumers_sem_name);
+	//
+	char *shmc_sem_name = generateTagName(buffer_name, CONSUMER_SHM_SEM_TAG);
+	producer.shmc_sem = openSemaphore(shmc_sem_name);
 	// Mapping shared producer global variables buffer and storing its memory address
 	char *shmp_name = generateTagName(buffer_name, PRODUCER_SHM_TAG);
 	producer.shmp = (struct shm_producers *) mapShareMemoryBlock(shmp_name);
