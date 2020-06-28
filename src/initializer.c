@@ -32,6 +32,11 @@ int main(int argc, char *argv[])
 	shmp.producers_total = 0;
 	shmp.buffer_index = 0;
 	shmp.buffer_isActive = 1;
+	shmp.produced_messages = 0;
+    shmp.accum_producers = 0;
+	shmp.total_waited_time = 0;
+	shmp.total_blocked_time = 0;
+	shmp.total_kernel_time = 0;
 
 	char *shmp_name = generateTagName(buffer_name, PRODUCER_SHM_TAG);
 	createShareMemoryBlock(shmp_name, sizeof(struct shm_producers));
@@ -47,6 +52,11 @@ int main(int argc, char *argv[])
 	struct shm_consumers shmc;
 	shmc.consumers_total = 0;
 	shmc.buffer_index = 0;
+	shmc.accum_consumers = 0;
+	shmc.key_deleted = 0;
+	shmc.total_waited_time = 0;
+	shmc.total_blocked_time = 0;
+	shmc.total_user_time = 0;
 
 	char *shmc_name = generateTagName(buffer_name, CONSUMER_SHM_TAG);
 	createShareMemoryBlock(shmc_name, sizeof(struct shm_consumers));

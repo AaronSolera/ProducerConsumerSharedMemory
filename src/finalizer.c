@@ -1,16 +1,15 @@
 #include <shmhandler.h>
 
-void initializesProducer(char *buffer_name, double random_times_mean);
+void initializesFinalizer(char *buffer_name);
 void finalizeProducer();
 void writeNewMessage(int index);
 
 
 // This structure stores all podrucer relevant values
-struct Producer {
-	pid_t  PID;
+struct Finalizer {
+	pid_t PID;
 	int    produced_messages;
 	int    current_buffer_index;
-	double times_mean;
 	double waited_time;
 	double sem_blocked_time;
 	long int kernel_time;
@@ -21,8 +20,16 @@ struct Producer {
 	sem_t  *consumer_buffer_sem;
 	sem_t  *shmp_sem;
 	sem_t  *shmc_sem; 
-} producer;
+} finalizer;
 
+// Declaring semaphore names
+char *producers_sem_name;
+char *consumers_sem_name;
+char *shmp_sem_name;
+char *shmc_sem_name;
+// Declaring shared gobal memory variable names
+char *shmp_name;
+char *shmc_name;
 // This struct is used for taking user space time
 struct rusage ktime;
 // This is value kills the producer if it is TRUE
@@ -33,110 +40,107 @@ int shm_block_size;
 double r;
 int total_consumers;
 int main(int argc, char *argv[]) {
-
 	// Ckecking if executable file gets just 2 arguments
 	if(argc != 2) {
 		printf("%s\n", "\033[1;31mError: you must write 1 arguments, only the buffer name\033[0m");
 		exit(1);
 	}
     // Initializing all needed values 
-	initializesProducer(argv[1], 0);
-
-	//int sem_value; <Debuging>
-
-	// This main loop ends when kill variable is TRUE
-
-	//preguntar cantidad consumers
-	sem_wait(producer.shmc_sem);
-	total_consumers = producer.shmc->consumers_total;
-	sem_post(producer.shmc_sem);
-
-	while(total_consumers > 0) {
-		
-		total_consumers--;
-
+	initializesFinalizer(argv[1]);
+	// Decrement global producer bufer semaphore
+	sem_wait(finalizer.shmp_sem);
+	finalizer.shmp->buffer_isActive = 0;
+	// Incrementing global producer bufer semaphorefinalizer
+	sem_post(finalizer.shmp_sem);
+	// For the number of producers alive
+	for (int i = 0; i <= finalizer.shmp->producers_total; ++i)
+	{
+		// Incrementing global producer bufer semaphorefinalizer
+		sem_post(finalizer.producer_buffer_sem);
+	}
+	// For the number of consumers alive
+	while(finalizer.shmc->consumers_total > 0)
+	{
 		// Decrement global producer bufer semaphore
-		sem_wait(producer.shmp_sem);
+		sem_wait(finalizer.shmp_sem);
 		// Storing producer writting buffer index value for keeping untouchable for other process
-		producer.current_buffer_index = producer.shmp->buffer_index;
+		finalizer.current_buffer_index = finalizer.shmp->buffer_index;
+		printf("%i\n", finalizer.shmp->buffer_index);
 		// This lines increments index to be written in messages buffer.
-		producer.shmp->buffer_index++;
-		producer.shmp->buffer_index = producer.shmp->buffer_index % (shm_block_size / sizeof(struct Message));
-		producer.shmp->buffer_isActive = 0;
-
-		// Incrementing global producer bufer semaphore
-		sem_post(producer.shmp_sem);
+		finalizer.shmp->buffer_index++;
+		finalizer.shmp->buffer_index = finalizer.shmp->buffer_index % (shm_block_size / sizeof(struct Message));
+		// Incrementing global producer bufer semaphorefinalizer
+		sem_post(finalizer.shmp_sem);
 		// Decrementing producer messages buffer semaphore for blocking one index from that buffer
-		sem_wait(producer.producer_buffer_sem);
+		sem_wait(finalizer.producer_buffer_sem);
 		// Writing a new message into the shared buffer
-		writeNewMessage(producer.current_buffer_index);
-		// Incrementing produced messages number just for statistics
+		writeNewMessage(finalizer.current_buffer_index);
 		// Incrementing
-		sem_post(producer.consumer_buffer_sem);
-		// Printing in terminal a written message alarm and some statistics
-		printf("\033[1;32m----------------------------------------------\n");
-		printf("|A message was written in shared memory block|\n");
-		printf("|--------------------------------------------|\n");
-		printf("|\033[0;32mBuffer index     %-10i                 \033[1;32m|\n", producer.current_buffer_index);
-		printf("|\033[0;32mConsumers alive  %-10i                 \033[1;32m|\n", producer.shmc->consumers_total);
-		printf("|\033[0;32mProducers alive  %-10i                 \033[1;32m|\n", producer.shmp->producers_total);
-		printf("----------------------------------------------\033[0m\n");
-
+		sem_post(finalizer.consumer_buffer_sem);
 	}
 
-	// Printing in terminal a finalized producer alarm and some stadistics
-	printf("\033[1;33m---------------------------------------------------\n");
-	printf("|The finalizer whose id is %-5i has been finalized|\n", producer.PID);
-	printf("|-------------------------------------------------|\n");
-	printf("|\033[0;33mFinalized messages %-10d                     \033[1;33m|\n", producer.produced_messages);
-	printf("|\033[0;33mWaited time       %-10f                     \033[1;33m|\n", producer.waited_time);
-	printf("|\033[0;33mBlocked time      %-10f                     \033[1;33m|\n", producer.sem_blocked_time);
-	printf("|\033[0;33mKernel time       %-10li us                  \033[1;33m|\n", producer.kernel_time);
+	// Printing in terminal a written message alarm and some statistics
+	printf("\033[1;32m----------------------------------------------\n");
+	printf("|Finalizer statistics                        |\n");
+	printf("|--------------------------------------------|\n");
+	printf("|\033[0;32mTotal messages         %-10i  \033[1;32m|\n", finalizer.shmp->produced_messages);
+	printf("|\033[0;32mTotal consumers        %-10i  \033[1;32m|\n", finalizer.shmc->accum_consumers);
+	printf("|\033[0;32mTotal producers        %-10i  \033[1;32m|\n", finalizer.shmp->accum_producers);
+	printf("|\033[0;33mKey deleted consumers  %-10d  \033[1;33m|\n", finalizer.shmc->key_deleted);
+	printf("|\033[0;33mTotal waited time      %-10f  \033[1;33m|\n", finalizer.shmc->total_waited_time + finalizer.shmp->total_waited_time);
+	printf("|\033[0;33mTotal blocked time     %-10f  \033[1;33m|\n", finalizer.shmc->total_blocked_time + finalizer.shmp->total_blocked_time);
+	printf("|\033[0;33mTotal user time (us)   %-10i  \033[1;33m|\n", finalizer.shmc->total_user_time);
+	printf("|\033[0;33mTotal kernel time (us) %-10i  \033[1;33m|\n", finalizer.shmp->total_kernel_time);
 	printf("---------------------------------------------------\033[0m\n");
-
+	// Setting semaphores free by name 
+	sem_unlink(producers_sem_name);
+	sem_unlink(consumers_sem_name);
+	sem_unlink(shmc_sem_name);
+	sem_unlink(shmp_sem_name);
+	// Setting shared memory blocks free by name
+	deleteShareMemoryBlock(shmp_name);
+	deleteShareMemoryBlock(shmc_name);
 	deleteShareMemoryBlock(argv[1]);
+	// Setting free used string allocated memory 
+	free(producers_sem_name);
+	free(consumers_sem_name);
+	free(shmc_sem_name);
+	free(shmp_sem_name);
+	free(shmp_name);
+	free(shmc_name);
 
 	return 0;
 }
 
-void initializesProducer(char *buffer_name, double random_times_mean) {
-	// Setting producer id with the process id given by the kernel
-	producer.PID = getpid();
-	// Getting generating time mean given by the executable argument and storing it 
-	producer.times_mean = random_times_mean;
+void initializesFinalizer(char *buffer_name) {
 	// Mapping messages shared buffer address
-	producer.buffer = (struct Message *) mapShareMemoryBlock(buffer_name);
+	finalizer.buffer = (struct Message *) mapShareMemoryBlock(buffer_name);
 	// Opening producer buffer access semaphore and storing its file descriptor
-	char *producers_sem_name = generateTagName(buffer_name, PRODUCER_SEM_TAG);
-	producer.producer_buffer_sem = openSemaphore(producers_sem_name);
+	producers_sem_name = generateTagName(buffer_name, PRODUCER_SEM_TAG);
+	finalizer.producer_buffer_sem = openSemaphore(producers_sem_name);
 	// Opening consumer buffer access semaphore and storing its file descriptor
-	char *consumers_sem_name = generateTagName(buffer_name, CONSUMER_SEM_TAG);
-	producer.consumer_buffer_sem = openSemaphore(consumers_sem_name);
-	//
-	char *shmc_sem_name = generateTagName(buffer_name, CONSUMER_SHM_SEM_TAG);
-	producer.shmc_sem = openSemaphore(shmc_sem_name);
-	// Mapping shared producer global variables buffer and storing its memory address
-	char *shmp_name = generateTagName(buffer_name, PRODUCER_SHM_TAG);
-	producer.shmp = (struct shm_producers *) mapShareMemoryBlock(shmp_name);
-	// Mapping shared consumer global variables buffer and storing its memory address
-	char *shmc_name = generateTagName(buffer_name, CONSUMER_SHM_TAG);
-	producer.shmc = (struct shm_consumers *) mapShareMemoryBlock(shmc_name);
+	consumers_sem_name = generateTagName(buffer_name, CONSUMER_SEM_TAG);
+	finalizer.consumer_buffer_sem = openSemaphore(consumers_sem_name);
+	// Opening shared consumer global variables buffer semaphore and storing its file descriptor
+	shmc_sem_name = generateTagName(buffer_name, CONSUMER_SHM_SEM_TAG);
+	finalizer.shmc_sem = openSemaphore(shmc_sem_name);
 	// Opening shared producer global variables buffer semaphore and storing its file descriptor
-	char *shmp_sem_name = generateTagName(buffer_name, PRODUCER_SHM_SEM_TAG);
-	producer.shmp_sem = openSemaphore(shmp_sem_name);
+	shmp_sem_name = generateTagName(buffer_name, PRODUCER_SHM_SEM_TAG);
+	finalizer.shmp_sem = openSemaphore(shmp_sem_name);
+	// Mapping shared producer global variables buffer and storing its memory address
+	shmp_name = generateTagName(buffer_name, PRODUCER_SHM_TAG);
+	finalizer.shmp = (struct shm_producers *) mapShareMemoryBlock(shmp_name);
+	// Mapping shared consumer global variables buffer and storing its memory address
+	shmc_name = generateTagName(buffer_name, CONSUMER_SHM_TAG);
+	finalizer.shmc = (struct shm_consumers *) mapShareMemoryBlock(shmc_name);
 	// Decrementing global producer bufer semaphore
 	// Storing shared messages buffer size for writing index computing
 	shm_block_size = getShareMemoryBlockSize(buffer_name);
 	// Setting some timing and counting statatistic values to 0
-	producer.produced_messages = 0;
-	producer.waited_time = 0;
-	producer.sem_blocked_time = 0;
-	producer.kernel_time = 0;
-	// Setting free used string allocated memory 
-	free(producers_sem_name);
-	free(shmp_name);
-	free(shmc_name);
-	free(shmp_sem_name);
+	finalizer.produced_messages = 0;
+	finalizer.waited_time = 0;
+	finalizer.sem_blocked_time = 0;
+	finalizer.kernel_time = 0;
 }
 
 void writeNewMessage(int index) {
@@ -147,7 +151,7 @@ void writeNewMessage(int index) {
   	srand(time(NULL));
   	// Creating and filling message struct with its relevant information
 	struct Message new_msg;	
-	new_msg.id = producer.PID;
+	new_msg.id = finalizer.PID;
 	new_msg.date.day = time_info->tm_mday;
 	new_msg.date.month = time_info->tm_mon + 1;
 	new_msg.date.year = time_info->tm_year + 1900;
@@ -156,6 +160,6 @@ void writeNewMessage(int index) {
 	new_msg.time.seconds = time_info->tm_sec;
 	new_msg.magic_number = -1;
 	// Writing the whole structure into shared messages buffer memory
-	writeInShareMemoryBlock(producer.buffer, &new_msg, sizeof(struct Message), index);
+	writeInShareMemoryBlock(finalizer.buffer, &new_msg, sizeof(struct Message), index);
 }
 

@@ -54,12 +54,22 @@ struct shm_producers
 	int producers_total;
 	int buffer_index;
 	int buffer_isActive;
+	int produced_messages;
+	int accum_producers;
+	double total_waited_time;
+	double total_blocked_time;
+	int total_kernel_time;
 };
 
 struct shm_consumers 
 {
 	int consumers_total;
 	int buffer_index;
+	int accum_consumers;
+	int key_deleted;
+	double total_waited_time;
+	double total_blocked_time;
+	int total_user_time;
 };
 
 void createShareMemoryBlock(char * buffer_name, int size);

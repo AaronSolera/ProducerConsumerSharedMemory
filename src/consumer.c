@@ -10,10 +10,9 @@ struct Consumer
 	int consumed_messages;
 	int current_buffer_index;
 	char * suspention_reason;
-	double acum_waited_time;
-	double acum_blocked_time;
-	int user_stime;
-	int user_ustime;
+	double waited_time;
+	double blocked_time;
+	long int user_stime;
 	struct Message *buffer;
 	struct shm_consumers *shmc;
 	struct shm_producers *shmp;
@@ -33,11 +32,16 @@ int key_mode = FALSE;
 int shm_block_size;
 // This stores a random value
 double r;
+// This variables stores 
+clock_t waited_time_begin, waited_time_end;
+clock_t blocked_time_begin, blocked_time_end;
 
 void initializesConsumer(char *buffer_name, int random_times_mean, int op_mode);
 void printMessageContent(struct Message *msg);
 void readMessage(int index);
 void finalizeConsumer();
+double posison(double lambda);
+
 
 int main(int argc, char *argv[]) 
 {
@@ -50,18 +54,31 @@ int main(int argc, char *argv[])
 	}
 
 	initializesConsumer(argv[1], atoi(argv[2]), atoi(argv[3]));
-
 	// This main loop ends when kill variable is TRUE
 	while(not(kill)) {
 		// Checking the set mode
 		if(key_mode){
 			// Waiting for entering key code
 			printf("\033[0;36mPress \033[1;33mEnter\033[0;36m to consume messages from producers...\033[0m\n");
+			// Saving starting waited time 
+			waited_time_begin = clock();
 			while(getchar() != ENTER_ASCII_CODE);
+			// Saving ending waited time 
+			waited_time_end = clock();
+			// Storing defference between end and start time into waited time
+			consumer.waited_time += (double)(waited_time_end - waited_time_begin) / CLOCKS_PER_SEC;
 		}else{
-			// Stopping process with random exponential behavior values
-			sleep(exp(consumer.times_mean));
+			// Saving starting waited time 
+			waited_time_begin = clock();
+			// Stopping process with random poisson behavior values
+			sleep(posison(consumer.times_mean));
+			// Saving ending waited time 
+			waited_time_end = clock();
+			// Storing defference between end and start time into waited time
+			consumer.waited_time += (double)(waited_time_end - waited_time_begin) / CLOCKS_PER_SEC;
 		}
+		// Saving starting blocked time 
+		blocked_time_begin = clock();
 		// Decrement global consumer bufer semaphore
 		sem_wait(consumer.shmc_sem);
 		// Storing consumer writting buffer index value for keeping untouchable for other process
@@ -73,6 +90,10 @@ int main(int argc, char *argv[])
 		sem_post(consumer.shmc_sem);
 		// Decrementing consumer messages buffer semaphore for blocking one index from that buffer
 		sem_wait(consumer.consumers_buffer_sem);
+		// Saving ending waited time 
+		blocked_time_end = clock();
+		// Storing defference between end and start time into waited time
+		consumer.blocked_time += (double)(blocked_time_end - blocked_time_begin) / CLOCKS_PER_SEC;
 		// Reading a new message in the shared buffer
 		readMessage(consumer.current_buffer_index);
 	}
@@ -82,9 +103,9 @@ int main(int argc, char *argv[])
 	printf("|The cosumer whose id is %-5i has been finalized |\n", consumer.PID);
 	printf("|-------------------------------------------------|\n");
 	printf("|\033[0;33mConsumed messages %-10d                     \033[1;33m|\n", consumer.consumed_messages);
-	printf("|\033[0;33mWaited time       %-10f                     \033[1;33m|\n", consumer.acum_waited_time);
-	printf("|\033[0;33mBlocked time      %-10f                     \033[1;33m|\n", consumer.acum_blocked_time);
-	printf("|\033[0;33mUser time         %i.%-5i s                      \033[1;33m|\n", consumer.user_stime, consumer.user_ustime);
+	printf("|\033[0;33mWaited time (s)   %-10f                     \033[1;33m|\n", consumer.waited_time);
+	printf("|\033[0;33mBlocked time (s)  %-10f                     \033[1;33m|\n", consumer.blocked_time);
+	printf("|\033[0;33mUser time (us)    %-10li                     \033[1;33m|\n", consumer.user_stime);
 	printf("---------------------------------------------------\033[0m\n");
 	// Printing suspention reason
 	printf("\033[1;31mSuspention reason: %s\033[0m\n", consumer.suspention_reason);
@@ -129,14 +150,15 @@ void initializesConsumer(char *buffer_name, int random_times_mean, int operation
 	sem_wait(consumer.shmc_sem);
 	// Incrementing total consumers value
 	consumer.shmc->consumers_total++;
+	consumer.shmc->accum_consumers++;
 	// Incrementing global consumer bufer semaphore
 	sem_post(consumer.shmc_sem);
 	// Storing shared messages buffer size for writing index computing
 	shm_block_size = getShareMemoryBlockSize(buffer_name);
 	// Setting some timing and counting statatistic values to 0
 	consumer.consumed_messages = 0;
-	consumer.acum_waited_time = 0;
-	consumer.acum_blocked_time = 0;
+	consumer.waited_time = 0;
+	consumer.blocked_time = 0;
 	// Getting process statistic struct
 	getrusage(RUSAGE_SELF, &utime);
 	// Setting free used string allocated memory 
@@ -160,6 +182,11 @@ void readMessage(int index)
 	} else if (msg->magic_number == consumer.PID % 6)
 	{
 		finalizeConsumer();
+		// Decrementing global consumer bufer semaphore
+		sem_wait(consumer.shmc_sem);
+		consumer.shmc->key_deleted++;
+		// Incrementing global consumer bufer semaphore
+		sem_post(consumer.shmc_sem);
 		consumer.suspention_reason = "Read key is equal to id % 6.";
 	}
 	// Incrementing consumed messages number just for statistics
@@ -181,26 +208,33 @@ void readMessage(int index)
 
 void printMessageContent(struct Message *msg)
 {
-	printf("|\033[0;32mProducer PID  : %-10i                  \033[1;32m|\n", msg->id);
-	printf("|\033[0;32mDay           : %-10i                  \033[1;32m|\n", msg->date.day);
-	printf("|\033[0;32mMonth         : %-10i                  \033[1;32m|\n", msg->date.month);
-	printf("|\033[0;32mYear          : %-10i                  \033[1;32m|\n", msg->date.year);
-	printf("|\033[0;32mHour          : %-10i                  \033[1;32m|\n", msg->time.hour);
-	printf("|\033[0;32mMinutes       : %-10i                  \033[1;32m|\n", msg->time.minutes);
-	printf("|\033[0;32mSeconds       : %-10i                  \033[1;32m|\n", msg->time.seconds);
-	printf("|\033[0;32mMagic number  : %-10i                  \033[1;32m|\n", msg->magic_number);
+	printf("|\033[0;32mProducer PID     %-10i                 \033[1;32m|\n", msg->id);
+	printf("|\033[0;32mDay              %-10i                 \033[1;32m|\n", msg->date.day);
+	printf("|\033[0;32mMonth            %-10i                 \033[1;32m|\n", msg->date.month);
+	printf("|\033[0;32mYear             %-10i                 \033[1;32m|\n", msg->date.year);
+	printf("|\033[0;32mHour             %-10i                 \033[1;32m|\n", msg->time.hour);
+	printf("|\033[0;32mMinutes          %-10i                 \033[1;32m|\n", msg->time.minutes);
+	printf("|\033[0;32mSeconds          %-10i                 \033[1;32m|\n", msg->time.seconds);
+	printf("|\033[0;32mMagic number     %-10i                 \033[1;32m|\n", msg->magic_number);
 }
 
 void finalizeConsumer() {
+	// Setting time in user space
+	consumer.user_stime = (long int) utime.ru_utime.tv_usec;
 	// Decrementing global consumer bufer semaphore
 	sem_wait(consumer.shmc_sem);
 	// Incrementing total consumers value
 	consumer.shmc->consumers_total--;
+	consumer.shmc->total_waited_time += consumer.waited_time;
+	consumer.shmc->total_blocked_time += consumer.blocked_time;
+	consumer.shmc->total_user_time += consumer.user_stime;
 	// Incrementing global consumer bufer semaphore
 	sem_post(consumer.shmc_sem);
-	// Setting time in user space
-	consumer.user_stime = (int) utime.ru_utime.tv_sec;
-	consumer.user_ustime = (int) utime.ru_utime.tv_usec;
 	// Setting the killing boolean variable
 	kill = TRUE;
+}
+
+double posison(double lambda) {
+	r = rand() / (RAND_MAX + 1.0);
+	return log(log(r / lambda));
 }
