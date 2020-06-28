@@ -65,7 +65,6 @@ int main(int argc, char *argv[]) {
 		sem_wait(finalizer.shmp_sem);
 		// Storing producer writting buffer index value for keeping untouchable for other process
 		finalizer.current_buffer_index = finalizer.shmp->buffer_index;
-		printf("%i\n", finalizer.shmp->buffer_index);
 		// This lines increments index to be written in messages buffer.
 		finalizer.shmp->buffer_index++;
 		finalizer.shmp->buffer_index = finalizer.shmp->buffer_index % (shm_block_size / sizeof(struct Message));
@@ -80,9 +79,9 @@ int main(int argc, char *argv[]) {
 	}
 
 	// Printing in terminal a written message alarm and some statistics
-	printf("\033[1;32m----------------------------------------------\n");
-	printf("|Finalizer statistics                        |\n");
-	printf("|--------------------------------------------|\n");
+	printf("\033[1;32m-------------------------------------\n");
+	printf("|Finalizer statistics               |\n");
+	printf("|-----------------------------------|\n");
 	printf("|\033[0;32mTotal messages         %-10i  \033[1;32m|\n", finalizer.shmp->produced_messages);
 	printf("|\033[0;32mTotal consumers        %-10i  \033[1;32m|\n", finalizer.shmc->accum_consumers);
 	printf("|\033[0;32mTotal producers        %-10i  \033[1;32m|\n", finalizer.shmp->accum_producers);
@@ -91,7 +90,7 @@ int main(int argc, char *argv[]) {
 	printf("|\033[0;33mTotal blocked time     %-10f  \033[1;33m|\n", finalizer.shmc->total_blocked_time + finalizer.shmp->total_blocked_time);
 	printf("|\033[0;33mTotal user time (us)   %-10i  \033[1;33m|\n", finalizer.shmc->total_user_time);
 	printf("|\033[0;33mTotal kernel time (us) %-10i  \033[1;33m|\n", finalizer.shmp->total_kernel_time);
-	printf("---------------------------------------------------\033[0m\n");
+	printf("-------------------------------------\033[0m\n");
 	// Setting semaphores free by name 
 	sem_unlink(producers_sem_name);
 	sem_unlink(consumers_sem_name);
